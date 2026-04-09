@@ -1,11 +1,10 @@
 # Gotaxy
 
-<img align="right" width="280px"  src="docs/images/logo2.png"  alt="logo">
+<img align="right" width="280px" src="docs/images/logo2.png" alt="Gotaxy Logo">
 
 English | [简体中文](README_CN.md)
 
-✈️ Gotaxy is a lightweight internal network penetration tool developed based on the Go language, which helps developers safely and conveniently expose internal network services to the public network.
-
+✈️ **Gotaxy** is a high-performance, event-driven reverse proxy and intranet penetration tool written in Go. It not only allows developers to securely and conveniently expose internal services to the public internet, but its architecture also supports multi-tenant connections, an elegant Web Control Panel, and seamless alerting integration.
 
 **_"Go beyond NAT, with style."_**
 
@@ -16,226 +15,123 @@ English | [简体中文](README_CN.md)
 [![readline](https://img.shields.io/badge/chzyer%2Freadline-1.5.1-orange)](https://github.com/chzyer/readline)
 [![Stars](https://img.shields.io/github/stars/JustGopher/Gotaxy?style=social)](https://github.com/JustGopher/Gotaxy/stargazers)
 
-
-### Core Technologies
-- **Language**: Go 1.24+
-- **Network**: TCP/TLS Protocol
-- **Database**: SQLite (modernc.org/sqlite)
-- **Multiplexing**: xtaci/smux
-- **Interactive Interface**: chzyer/readline
+## 🌟 Key Features
+- **Highly Secure (mTLS)**: Built-in self-signed CA certificate issuance mechanism, building a complete security chain from "authentication" to "data encryption".
+- **Event-Driven Architecture (EDA)**: Deep decoupling of the Control Plane and Data Plane based on an in-memory EventBus, significantly boosting network forwarding throughput.
+- **Dual Management Interfaces (Web & CLI)**:
+  - **Web Control Panel**: A modern built-in dashboard powered by Alpine.js + Tailwind CSS, offering one-click control over configurations, certificates, and port mapping rules.
+  - **Interactive CLI**: Supports multi-level commands, highlighted outputs, and intelligent Tab auto-completion.
+- **Pluggable Alerting**: Supports automatic email alerts triggered by client heartbeat timeouts (Extension Layer mechanism).
+- **Lightweight & Pure**: All resources (including Web templates) are bundled into a single binary. No external dependencies, completely out-of-the-box.
 
 ---
 
 ## 🚀 Quick Start
 
-### Get the Program
+### 1. Start the Server and Web Panel
 
-Download the latest version in Release, which provides executable programs, compressed packages, and source codes. It supports running on Linux and Windows environments under AMD64.
-
-### Server Startup
+It is recommended to run directly from the source code or download the latest compiled release.
 
 ```bash
-./gotaxy-server  # Run the program. If it's Windows, the program name is gotaxy-server.exe. The same applies to the client below.
-# If running from source code: 
-# go run cmd/server/server.go
+# Start the server (which automatically spins up the Web Panel and CLI terminal)
+go run cmd/server/server.go
 ```
 
-##### Generate Certificate
+Once started, you can configure Gotaxy via the **Browser** or the **CLI Terminal**:
 
-Gotaxy implements a self-signed CA certificate through a native library: by issuing and signing certificates, it ensures that the identities of both communication parties are trustworthy and that data transmission is encrypted during the internal network penetration process, which is the core mechanism for ensuring the safe use of the tool.
+👉 **Option A: Using the Web Control Panel (Recommended)**
+1. Open your browser and navigate to `http://localhost:8080/`.
+2. Update the **Public IP** and **Listen Port** in the configuration panel.
+3. Click on **mTLS Certificate Management** to generate a CA and issue server/client certificates.
+4. Add a mapping rule (e.g., exposing an internal 3306 port).
+5. Click **Start Service** in the top left corner.
 
-The server and client certificates, in conjunction with the CA root certificate, jointly form a complete secure chain for Gotaxy from "authentication" to "data encryption", ensuring that the internal network penetration process is both secure and reliable.
-
-The server generates the certificate through interactive commands:
+👉 **Option B: Using the Interactive CLI Terminal**
+Enter the following commands sequentially in your terminal (Tab completion supported):
 ```bash
-gen-ca    [year]  # Generate root CA certificate
-gen-certs [day]   # Server and client certificates
-# Options:
-  year int
-        Certificate validity period, in years (default 10)
-  day int
-        Certificate validity period, in days (default 365)    
+config set ip <your_public_ip>
+config set port 9000
+cert ca              # Generate root CA certificate
+cert gen 365         # Issue TLS certificates valid for 365 days
+mapping add web 8080 127.0.0.1:3000  # Add a mapping rule
+mapping start web    # Enable the rule
+service start        # Start the core proxy service
 ```
 
-Set the server IP, listening port, and the address of the internal network service that needs to be penetrated.
+### 2. Client Connection
+
+Copy the `ca.crt`, `client.crt`, and `client.key` from the server's `certs` directory to the corresponding location on your client machine.
+
+Start the client to establish an encrypted tunnel:
 ```bash
-set--ip <ip>
-set--port <port>
-add-mapping <name> <public_port> <target_addr> # Add a port mapping
-open-mapping <name> # Newly added mappings are closed by default and need to be manually opened 
+go run cmd/client/client.go -h <server_ip> -p <server_listen_port>
 ```
 
-Start the service:
-```bash
-Start # Start the core service of the server and begin to listen for clients. 
-```
-
-### Client Connection
-
-Start the client and establish a port forwarding tunnel. The client startup requires the IP address and listening port of the server host, and also needs to carry the TLS certificate generated by the server.
-```bash
-./gotaxy-client start  -h [host] -p <port> [-ca <ca-cert-path>] [-crt <client-cert-path>] [-key <private-key-path>]
-# If running through source code: 
-# go run cmd/client/client.go -h [host] -p <port> [-ca <ca-cert-path>] [-crt <client-cert-path>] [-key <private-key-path>]
-Options:
-  -h [host]
-        The hostname or IP address of the server (default "127.0.0.1")
-  -p <port>
-        The port number to connect to (default 9000)
-  -ca <ca-cert-path>
-        Path to the CA certificate file (default "certs/ca.crt")
-  -crt <client-cert-path>
-        Path to the client certificate file (default "certs/client.crt")
-  -key <private-key-path>
-        Path to the client private key file (default "certs/client.key")`)
-```
-
-
-### ⚙️ Instructions for Using Server Interaction Commands
-
-The following lists all available commands on the server and their effects:
-
-
-
-- `gen-ca [time(year)] [-overwrite]`
-
-  Validity period: Optional parameter, specifies the validity period of the CA certificate. The default is 10 years.
-
-  -overwrite: Optional parameter, forces overwrite of an existing CA certificate.
-
-  gen-ca 5 -overwrite  (Generate a CA certificate valid for 5 years and overwrite the existing one)
-
-
-- `gen-certs [time(day)]`
-
-  Validity period: Optional parameter, specifies the validity period of the certificate (in days), default is 365 days.
-
-  Generate certificates with a validity of 30 days: gen-certs 30
-
-
-- `start`
-
-  Function: Start the server and check if the certificate exists.
-
-
-- `stop`
-
-  Function: Stop the running server
-
-
-- `show-config`
-
-  Function: Display the current server IP, listening port, and email configuration.
-
-
-- `show-mapping`
-
-  Function: Display all configured port mappings and their statuses.
-
-
-- `set-ip <ip>`
-
-  Function: Set the server IP address
-
-  Set IP to 192.168.1.100
-
-
-- `set-port <port>`
-
-  Function: Set the listening port of the server, with a range of 1 to 65535.
-
-  set-port 9000
-
-
-- `set-email <email>`
-
-  Function: Set the server email address for receiving notifications.
-
-  set-email admin@example.com
-
-
-- `add-mapping <name> <public_port> <target_addr>`
-
-  Function: Add a new port mapping configuration
-
-  add-mapping web 8080 127.0.0.1:3000
-
-
-- `del-mapping <name>`
-
-  Function: Delete the port mapping with the specified name.
-
-  delete mapping web
-
-
-- `upd-mapping <name> <public_port> <target_addr> <rate>`
-
-  Function: Update the port mapping configuration of the specified name.
-
-  upd-mapping web 8080 127.0.0.1:3000 2,097,152 (2MB)
-
-
-- `open-mapping <name>`
-
-  Function: Open the port mapping with the specified name.
-
-  Example: open-mapping web
-
-
-- `close-mapping <name>`
-
-  Function: Disable the port mapping with the specified name.
-
-  Example: close-mapping web
-
-
-- `heart`
-
-  Function: Check the current link status
-
-
-- `mode [vi|emacs]`
-
-  Function: Set command-line editing mode
-
-  Switch to vi mode: mode vi
-
-
-- `help`
-
-  Function: Display this help information
-
-
-- `exit`
-
-  Function: Stop the service and exit the command line interface.
+Client arguments:
+- `-h` : The public IP of the server (Default: 127.0.0.1)
+- `-p` : The control listen port of the server (Default: 9000)
+- `-ca` : Path to the CA root certificate (Default: certs/ca.crt)
+- `-crt` : Path to the client certificate (Default: certs/client.crt)
+- `-key` : Path to the client private key (Default: certs/client.key)
 
 ---
 
-### Requirements Document
+## 💻 CLI Terminal Command Reference
 
-For detailed requirements analysis, please refer to the [REQUIREMENTS.md](docs/REQUIREMENTS.md) file.
+```text
+================= Gotaxy Interactive CLI Help =================
+
+🛠️  Service Control
+  service start               Start the proxy server
+  service stop                Stop the running service
+  service status              Check the current service status
+
+⚙️  Core Configuration (Config)
+  config show                 Display all current configurations
+  config set ip <ip>          Set the server's public IP (Required)
+  config set port <port>      Set the control listen port (e.g., 9000)
+  config set email <email>    Set the alert email address
+
+🔌 Mapping Rules
+  mapping list                                        List all mapping rules
+  mapping add <name> <pub_port> <target>              Add a new rule
+  mapping del <name>                                  Delete a rule
+  mapping upd <name> <pub_port> <target> <rate_limit> Update a rule (including rate limit)
+  mapping start <name>                                Start a specific rule
+  mapping stop <name>                                 Stop a specific rule
+
+🔐 Certificate Management (Cert)
+  cert ca [year] [-overwrite] Generate a root CA certificate (Default: 10 years)
+  cert gen [days]             Issue server & client mTLS certificates (Default: 365 days)
+
+💻 Terminal Operations
+  clear                       Clear the screen
+  mode [vi|emacs]             Switch command-line editing mode
+  help                        Display this help message
+  exit                        Stop all services and exit the terminal safely
+===============================================================
+```
 
 ---
 
-### Submit Contributions
+## 📚 Architecture & Documentation
 
-Welcome to submit Issues and Pull Requests.
-
-If you want to contribute code, please refer to the [CONTRIBUTING.md.md](docs/CONTRIBUTING.md) file.
-
-Please read [COMMIT_CONVENTION.md](docs/COMMIT_CONVENTION.md) before submitting code. We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+To dive deeper into Gotaxy's architectural design and refactoring journey, please refer to:
+- [Architecture Design (DESIGN.md)](docs/DESIGN.md)
+- [Changelog (CHANGELOG.md)](docs/CHANGELOG.md)
+- [Requirements (REQUIREMENTS.md)](docs/REQUIREMENTS.md)
 
 ---
 
-<h3 align="left">Contribution Wall</h3>
+## 🤝 Contributing
 
+Issues and Pull Requests are highly welcome!
+
+- Please review [CONTRIBUTING.md](docs/CONTRIBUTING.md) before contributing code.
+- Read [COMMIT_CONVENTION.md](docs/COMMIT_CONVENTION.md) for commit message guidelines. We strictly follow the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+
+<h3 align="left">Contributors Wall</h3>
 
 <a href="https://github.com/JustGopher/Gotaxy/graphs/contributors">
-
-<img src="https://contri.buzz/api/wall? repo=JustGopher/Gotaxy&onlyAvatars=true" alt="Contributors' Wall for JustGopher/Gotaxy" />
-
+<img src="https://contri.buzz/api/wall?repo=JustGopher/Gotaxy&onlyAvatars=true" alt="Contributors' Wall for JustGopher/Gotaxy" />
 </a>
-
-<br />
-<br />
