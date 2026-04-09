@@ -125,87 +125,78 @@ func (s *Shell) Run() {
 }
 
 func (s *Shell) buildCompleter() *readline.PrefixCompleter {
-	items := []readline.PrefixCompleterInterface{
-		readline.PcItem("mode", readline.PcItem("vi"), readline.PcItem("emacs")),
-		readline.PcItem("exit"),
+	return readline.NewPrefixCompleter(
+		readline.PcItem("service",
+			readline.PcItem("start"),
+			readline.PcItem("stop"),
+			readline.PcItem("status"),
+		),
+		readline.PcItem("config",
+			readline.PcItem("show"),
+			readline.PcItem("set",
+				readline.PcItem("ip"),
+				readline.PcItem("port"),
+				readline.PcItem("email"),
+			),
+		),
+		readline.PcItem("mapping",
+			readline.PcItem("list"),
+			readline.PcItem("add"),
+			readline.PcItem("del"),
+			readline.PcItem("upd"),
+			readline.PcItem("start"),
+			readline.PcItem("stop"),
+		),
+		readline.PcItem("cert",
+			readline.PcItem("ca"),
+			readline.PcItem("gen"),
+		),
+		readline.PcItem("mode",
+			readline.PcItem("vi"),
+			readline.PcItem("emacs"),
+		),
 		readline.PcItem("help"),
-	}
-	for name := range s.commands {
-		items = append(items, readline.PcItem(name))
-	}
-	return readline.NewPrefixCompleter(items...)
+		readline.PcItem("exit"),
+		readline.PcItem("clear"),
+	)
 }
 
 // printHelpDoc 打印命令帮助文档
-// nolint:funlen
 func (s *Shell) printHelpDoc() {
-	helpDoc := `命令帮助文档:
-  gen-ca [time(year)] [-overwrite]
-	有效期: 可选参数，指定CA证书的有效期，默认为10年
-	-overwrite: 可选参数，强制覆盖已存在的证书
-	示例: gen-ca 5 -overwrite  (生成有效期为5年的CA证书并覆盖已有证书)
+	helpDoc := `
+================= Gotaxy 交互式终端帮助文档 =================
 
-  gen-certs [time(day)]
-	有效期: 可选参数，指定证书的有效期(天)，默认为365天
-	示例: gen-certs 30  (生成有效期为30天的证书)
+🛠️  服务控制 (Service)
+  service start               启动内网穿透服务端
+  service stop                停止运行中的服务
+  service status              查看当前服务运行状态
 
-  start 
-	功能: 启动服务器，会检查证书是否存在
+⚙️  核心配置 (Config)
+  config show                 显示当前所有配置信息
+  config set ip <ip>          设置服务端公网IP (必须)
+  config set port <port>      设置服务端控制监听端口 (如: 9000)
+  config set email <email>    设置报警邮箱
 
-  stop 
-	功能: 停止运行中的服务器
+🔌 映射规则 (Mapping)
+  mapping list                                        列出所有映射规则
+  mapping add <name> <pub_port> <target>              添加新规则 (例: mapping add web 8080 127.0.0.1:3000)
+  mapping del <name>                                  删除映射规则
+  mapping upd <name> <pub_port> <target> <rate_limit> 更新映射规则 (包含限速)
+  mapping start <name>                                启动指定的映射规则
+  mapping stop <name>                                 停止指定的映射规则
 
-  show-config 
-	功能: 显示当前服务器IP、监听端口和邮箱配置
+🔐 证书管理 (Cert)
+  cert ca [year] [-overwrite] 生成 CA 根证书 (默认 10 年)
+  cert gen [days]             基于 CA 签发服务端与客户端 mTLS 证书 (默认 365 天)
 
-  show-mapping 
-	功能: 显示所有配置的端口映射及其状态
+💻 终端操作
+  clear                       清屏
+  mode [vi|emacs]             切换命令行编辑模式
+  help                        显示本帮助信息
+  exit                        停止所有服务并安全退出终端
 
-  set-ip <ip>
-	功能: 设置服务端IP地址
-	示例: set-ip 192.168.1.100
-
-  set-port <port>
-	功能: 设置服务端监听端口，范围为1-65535
-	示例: set-port 9000
-
-  set-email <email>
-	功能: 设置服务端邮箱地址，用于接收通知
-	示例: set-email admin@example.com
-
-  add-mapping <name> <public_port> <target_addr>
-	功能: 添加一个新的端口映射配置
-	示例: add-mapping web 8080 127.0.0.1:3000
-
-  del-mapping <name>
-	功能: 删除指定名称的端口映射
-	示例: del-mapping web
-
-  upd-mapping <name> <public_port> <target_addr> <rate>
-	功能: 更新指定名称的端口映射配置
-	示例: upd-mapping web 8080 127.0.0.1:3000 2,097,152(2MB)
-
-  open-mapping <name>
-	功能: 打开指定名称的端口映射	
-	示例: open-mapping web
-
-  close-mapping <name>
-	功能: 关闭指定名称的端口映射	
-	示例: close-mapping web
-
-  heart
-	功能: 查看当前链接状态
-
-  mode [vi|emacs]
-	功能: 设置命令行编辑模式
-	示例: mode vi  (切换到vi模式)
-
-  help 
-	功能: 显示此帮助信息
-
-  exit 
-	功能: 停止服务并退出命令行界面`
-
+=============================================================
+`
 	fmt.Println(helpDoc)
 }
 
