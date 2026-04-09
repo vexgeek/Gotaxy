@@ -1,29 +1,31 @@
 package main
 
 import (
-	"context"
-	"github/JustGopher/Gotaxy/internal/global"
+	"github/JustGopher/Gotaxy/internal/core"
 	"github/JustGopher/Gotaxy/internal/inits"
-	"github/JustGopher/Gotaxy/internal/pool"
 	"github/JustGopher/Gotaxy/internal/shell"
+	"github/JustGopher/Gotaxy/internal/web"
 )
 
 func main() {
-	global.Ctx, global.Cancel = context.WithCancel(context.Background())
+	// 1. 初始化日志
+	infoLog, errorLog := inits.LogInit()
 
-	global.DB = inits.DBInit()
-	inits.LogInit()
+	// 2. 初始化数据库
+	db := inits.DBInit(errorLog)
+	defer db.Close()
 
-	global.ConnPool = pool.NewPool()
+	// 3. 实例化并组装核心服务器
+	server := core.NewServer(db, infoLog, errorLog)
+	server.Config.ConfigLoad(db, server.Sessions)
+	server.InfoLog.Println("Gotaxy 启动成功，架构版本: v0.3.0 (事件驱动架构)")
 
-	global.Config.ConfigLoad(global.DB, global.ConnPool)
+	// 4. 启动 Web 面板服务 (后台协程运行)
+	webServer := web.NewWebServer(server)
+	go webServer.Start("8080")
 
-	global.InfoLog.Println("Gotaxy 启动成功")
-
-	// web 面板未开发完成
-	//go web.Start()
-
-	sh := shell.New()
+	// 5. 启动交互式 CLI 终端
+	sh := shell.New(server)
 	shell.RegisterCMD(sh)
 	sh.Run()
 }

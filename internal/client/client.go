@@ -1,4 +1,4 @@
-package clientCore
+package client
 
 import (
 	"bufio"
@@ -16,11 +16,8 @@ import (
 	"github.com/xtaci/smux"
 )
 
-// Start 启动
+// Start 启动客户端
 func Start(serverAddr, certFile, keyFile, caFile string) {
-	// HelloServe 为测试服务，位于最下方HelloServe()函数
-	// go HelloServe()
-
 	fmt.Println(serverAddr, certFile, keyFile, caFile)
 	tlsCfg, err := LoadClientTLSConfig(certFile, keyFile, caFile)
 	if err != nil {
@@ -79,20 +76,18 @@ func handleStream(stream *smux.Stream) {
 	reader := bufio.NewReader(stream)
 	header, err := reader.ReadString('\n')
 	if err != nil {
-		log.Println("读取目标地址失败:", err)
+		log.Println("读取指令头失败:", err)
 		_ = stream.Close()
 		return
 	}
 	switch strings.TrimSpace(header) {
 	case "HEARTBEAT":
-		// 是心跳，读 "ping"，返回 "pong"
 		payload, _ := reader.ReadString('\n')
 		if strings.TrimSpace(payload) == "PING" {
 			_, _ = stream.Write([]byte("PONG"))
 		}
 		_ = stream.Close()
 	case "DIRECT":
-		// 是普通转发请求，读取目标地址
 		target, err := reader.ReadString('\n')
 		if err != nil {
 			log.Println("读取目标地址失败:", err)
@@ -119,7 +114,7 @@ func handleForward(target string, stream *smux.Stream) {
 	go proxy(localConn, stream)
 }
 
-// proxy 数据转发
+// proxy 数据双向转发
 func proxy(dst, src net.Conn) {
 	defer func(dst net.Conn) {
 		_ = dst.Close()
@@ -130,7 +125,7 @@ func proxy(dst, src net.Conn) {
 	_, _ = io.Copy(dst, src)
 }
 
-// HelloServe 测试服务
+// HelloServe 演示用的测试服务
 func HelloServe() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		timeNow := time.Now().Format(time.UnixDate)

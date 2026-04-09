@@ -9,18 +9,20 @@ import (
 	"strings"
 	"time"
 
-	"github/JustGopher/Gotaxy/internal/global"
+	"github/JustGopher/Gotaxy/internal/core"
 
 	"github.com/chzyer/readline"
 )
 
 type Shell struct {
 	Rl       *readline.Instance
+	server   *core.GotaxyServer
 	commands map[string]func(args []string)
 }
 
-func New() *Shell {
+func New(server *core.GotaxyServer) *Shell {
 	return &Shell{
+		server:   server,
 		commands: make(map[string]func(args []string)),
 	}
 }
@@ -101,7 +103,9 @@ func (s *Shell) Run() {
 			s.printHelpDoc()
 			continue
 		case line == "exit":
-			global.Cancel()
+			if s.server.Cancel != nil {
+				s.server.Cancel()
+			}
 			time.Sleep(time.Second)
 			isExit = true
 		}

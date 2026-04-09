@@ -1,776 +1,501 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>{{ .title }}</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Alpine.js 用于简单的交互 -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
-        button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 16px;
-            margin: 4px 2px;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-
-        .message {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 4px;
-        }
-
-        .success {
-            background-color: #dff0d8;
-            color: #3c763d;
-        }
-
-        .error {
-            background-color: #f2dede;
-            color: #a94442;
-        }
-
-        .warning {
-            background-color: #fcf8e3;
-            color: #8a6d3b;
-        }
-
-        /* 模态框背景 */
-        .modal {
-            display: none; /* 默认隐藏 */
-            position: fixed; /* 固定定位 */
-            z-index: 1;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto; /* 允许滚动 */
-            background-color: rgb(0,0,0); /* Fallback color */
-            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-        }
-
-        /* 模态框内容 */
-        .modal-content {
-            background-color: #fefefe;
-            margin: 15% auto; /* 15% from the top and centered */
-            padding: 20px;
-            border: 1px solid #888;
-            width: 400px; /* 调整为固定宽度 */
-            border-radius: 8px; /* 添加圆角 */
-        }
-
-        /* 关闭按钮 */
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close:hover,
-        .close:focus {
-            color: black;
-            text-decoration: none;
-        }
-
-        /* 配置项显示 */
-        .config-items {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .config-items span {
-            margin-right: 10px;
-        }
-
-        /* 弹窗内的表单元素 */
-        .modal-content .form-group input {
-            width: 100%; /* 确保输入框宽度为100% */
-            box-sizing: border-box; /* 包含内边距和边框在宽度内 */
-        }
-
-        /* 弹窗内的按钮样式 */
-        .modal-content button {
-            width: 100%; /* 确保按钮宽度为100% */
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .modal-content button:hover {
-            background-color: #45a049;
-        }
-
-        /* 映射表格样式 */
-        .mapping-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .mapping-table th,
-        .mapping-table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-
-        .mapping-table th {
-            background-color: #f2f2f2;
-        }
-
-        .mapping-table tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-
-        .mapping-controls {
-            margin-bottom: 15px;
-        }
-
-        .btn-primary {
-            background-color: #007bff;
-        }
-
-        .btn-danger {
-            background-color: #dc3545;
-            color: white;
-        }
-
-        .btn-warning {
-            background-color: #ffc107;
-            color: black;
-        }
-
-        /* 模态框样式 */
-        .modal {
-            position: fixed;
-            z-index: 1;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.4);
-        }
-
-        .modal-content {
-            background-color: #fefefe;
-            margin: 15% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%;
-            max-width: 500px;
-            border-radius: 5px;
-        }
-
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close:hover,
-        .close:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-
-        .status-running {
-            color: green;
-            font-weight: bold;
-        }
-
-        .status-stopped {
-            color: red;
-        }
+        [x-cloak] { display: none !important; }
     </style>
 </head>
+<body class="bg-gray-50 font-sans antialiased text-gray-800" x-data="gotaxyApp()">
 
-<body>
-    <h1>Gotaxy</h1>
-
-    <!-- 服务状态显示 -->
-    <div>
-        <h2>服务状态</h2>
-        <div id="serviceStatus">
-            <!-- 服务状态将通过JavaScript动态加载 -->
-        </div>
-        <button id="startServiceBtn">启动服务</button>
-        <button id="stopServiceBtn">停止服务</button>
-    </div>
-
-    <div>
-        <!-- 下载证书 -->
-        <p>请按照以下步骤操作：</p>
-        <ol>
-            <li>首先生成根证书(CA)</li>
-            <li>然后生成服务端和客户端证书</li>
-            <li>最后下载证书</li>
-        </ol>
-        <button id="generateCA">1. 生成根证书(CA)</button>
-        <button id="generateCerts">2. 生成服务端和客户端证书</button>
-        <button id="downloadCerts">3. 下载证书</button>
-        <div id="certMessage" class="message"></div>
-        <div id="certStatus" class="message warning" style="display: none;"></div>
-    </div>
-
-
-    <div>
-        <!-- 查看和修改配置 -->
-        <div id="config-section">
-            <h2>配置管理</h2>
-            <div class="config-items">
-                <span>服务器IP:</span>
-                <span id="display-server_ip">{{.server_ip}}</span>
-                <span>监听端口:</span>
-                <span id="display-listen_port">{{.listen_port}}</span>
-                <span>邮箱:</span>
-                <span id="display-email">{{.email}}</span>
-                <button id="editConfigBtn">修改配置</button>
-            </div>
-
-            <!-- 配置管理弹窗 -->
-            <div id="config-modal" class="modal">
-                <div class="modal-content">
-                    <span class="close">&times;</span>
-                    <h2>配置管理</h2>
-                    <form id="config-form">
-                        <div class="form-group">
-                            <label for="server_ip">服务器IP:</label>
-                            <input type="text" id="server_ip" name="server_ip" value="{{.server_ip}}">
-                        </div>
-                        <div class="form-group">
-                            <label for="listen_port">监听端口:</label>
-                            <input type="number" id="listen_port" name="listen_port" value="{{.listen_port}}" min="1" max="65535">
-                        </div>
-                        <div class="form-group">
-                            <label for="email">邮箱:</label>
-                            <input type="email" id="email" name="email" value="{{.email}}">
-                        </div>
-                        <button type="submit">保存配置</button>
-                    </form>
+    <!-- 导航栏 -->
+    <nav class="bg-indigo-600 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span class="ml-2 text-white font-bold text-xl tracking-wider">Gotaxy 控制面板</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="px-3 py-1 rounded-full text-sm font-semibold"
+                          :class="isRunning ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                          x-text="isRunning ? '服务运行中' : '服务已停止'">
+                    </span>
                 </div>
             </div>
         </div>
-    </div>
+    </nav>
 
+    <!-- 主体内容 -->
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        
+        <!-- 全局控制与状态卡片 -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-lg font-semibold text-gray-700">核心服务配置</h2>
+                <button @click="openConfigModal()" class="text-sm text-indigo-600 hover:text-indigo-800 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    修改配置
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div class="bg-gray-50 p-4 rounded-md border border-gray-100">
+                    <p class="text-sm text-gray-500 mb-1">公网 IP</p>
+                    <p class="font-medium text-gray-900" x-text="config.serverIP || '-'"></p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-md border border-gray-100">
+                    <p class="text-sm text-gray-500 mb-1">控制端口</p>
+                    <p class="font-medium text-gray-900" x-text="config.listenPort || '-'"></p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-md border border-gray-100">
+                    <p class="text-sm text-gray-500 mb-1">报警邮箱</p>
+                    <p class="font-medium text-gray-900 truncate" x-text="config.email || '未配置'"></p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-md border border-gray-100">
+                    <p class="text-sm text-gray-500 mb-1">累计转发流量</p>
+                    <p class="font-medium text-indigo-600" x-text="formatBytes(config.totalTraffic)"></p>
+                </div>
+            </div>
 
-    <div>
-        <!-- 映射列表管理 -->
-        <h2>端口映射管理</h2>
-        <div class="mapping-controls">
-            <button id="addMappingBtn" class="btn-primary">添加新映射</button>
-            <button id="refreshMappingsBtn">刷新列表</button>
-        </div>
-
-        <div id="mappingMessage" class="message" style="display: none;"></div>
-
-        <table id="mappingTable" class="mapping-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>名称</th>
-                    <th>公共端口</th>
-                    <th>目标地址</th>
-                    <th>状态</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody id="mappingList">
-                <!-- 映射列表将通过JavaScript动态加载 -->
-            </tbody>
-        </table>
-
-        <!-- 添加/编辑映射的弹窗 -->
-        <div id="mappingModal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <span class="close">&times;</span>
-                <h3 id="modalTitle">添加新映射</h3>
-                <form id="mappingForm">
-                    <div class="form-group">
-                        <label for="name">名称:</label>
-                        <input type="text" id="name" name="name" placeholder="可选，留空将自动生成">
-                    </div>
-                    <div class="form-group">
-                        <label for="publicPort">公共端口:</label>
-                        <input type="number" id="publicPort" name="publicPort" required min="1" max="65535">
-                    </div>
-                    <div class="form-group">
-                        <label for="targetAddr">目标地址:</label>
-                        <input type="text" id="targetAddr" name="targetAddr" required
-                            placeholder="例如: 192.168.1.100:80">
-                    </div>
-                    <button type="submit" id="saveMapping">保存</button>
-                </form>
+            <div class="flex space-x-4">
+                <button @click="startService" :disabled="isRunning" 
+                        class="px-4 py-2 bg-green-600 text-white rounded-md shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    启动服务
+                </button>
+                <button @click="stopService" :disabled="!isRunning"
+                        class="px-4 py-2 bg-red-600 text-white rounded-md shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    停止服务
+                </button>
             </div>
         </div>
-    </div>
+
+        <!-- 证书管理卡片 -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <h2 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">mTLS 证书管理</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 生成 CA 证书 -->
+                <div class="bg-gray-50 p-4 rounded-md border border-gray-100">
+                    <h3 class="text-md font-medium text-gray-800 mb-2">生成 CA 根证书</h3>
+                    <p class="text-xs text-gray-500 mb-4">CA 根证书是签发服务端与客户端证书的基础，如果已有请谨慎覆盖。</p>
+                    <div class="flex items-end space-x-3">
+                        <div class="w-1/3">
+                            <label class="block text-xs font-medium text-gray-700">有效期 (年)</label>
+                            <input type="number" x-model.number="certForm.caYear" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border px-3 py-1" placeholder="默认 10">
+                        </div>
+                        <div class="flex items-center pb-2">
+                            <input type="checkbox" id="caOverwrite" x-model="certForm.caOverwrite" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                            <label for="caOverwrite" class="ml-2 block text-sm text-gray-900">强制覆盖</label>
+                        </div>
+                        <button @click="generateCA" class="px-3 py-1.5 bg-gray-800 text-white rounded shadow hover:bg-gray-900 text-sm transition-colors mb-0.5">
+                            生成 CA
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 生成服务端与客户端证书 -->
+                <div class="bg-gray-50 p-4 rounded-md border border-gray-100">
+                    <h3 class="text-md font-medium text-gray-800 mb-2">签发服务端与客户端证书</h3>
+                    <p class="text-xs text-gray-500 mb-4">基于 CA 根证书和配置的「公网 IP」签发对应的 TLS 证书。</p>
+                    <div class="flex items-end space-x-3">
+                        <div class="w-1/2">
+                            <label class="block text-xs font-medium text-gray-700">有效期 (天)</label>
+                            <input type="number" x-model.number="certForm.certDays" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border px-3 py-1" placeholder="默认 365">
+                        </div>
+                        <button @click="generateCerts" class="px-3 py-1.5 bg-gray-800 text-white rounded shadow hover:bg-gray-900 text-sm transition-colors mb-0.5">
+                            签发证书
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 映射规则列表 -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <h2 class="text-lg font-semibold text-gray-700">端口映射规则</h2>
+                <div class="flex space-x-3">
+                    <button @click="openMappingModal()" class="text-sm text-green-600 hover:text-green-800 flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        新增规则
+                    </button>
+                    <button @click="fetchMappings" class="text-sm text-indigo-600 hover:text-indigo-800 flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        刷新
+                    </button>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规则名称</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">公网端口</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">内网目标</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">限速</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">流量消耗</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <template x-for="m in mappings" :key="m.Name">
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="m.Name"></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs" x-text="m.PublicPort"></span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="m.TargetAddr"></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatBytes(m.RateLimit) + '/s'"></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatBytes(m.Traffic)"></td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                          :class="m.Status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+                                          x-text="m.Status === 'active' ? '运行中' : '未运行'">
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end items-center space-x-2">
+                                    <button @click="openMappingModal(m)" class="text-indigo-600 hover:text-indigo-900" title="编辑规则">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                    </button>
+                                    <button @click="deleteMapping(m.Name)" class="text-red-600 hover:text-red-900" title="删除规则">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                    <!-- 切换开关 -->
+                                    <button @click="toggleMapping(m.Name, !m.Enable)"
+                                            class="relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                            :class="m.Enable ? 'bg-indigo-600' : 'bg-gray-200'">
+                                        <span aria-hidden="true" 
+                                              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200"
+                                              :class="m.Enable ? 'translate-x-5' : 'translate-x-0'"></span>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="mappings.length === 0" x-cloak>
+                            <td colspan="7" class="px-6 py-10 text-center text-gray-500 text-sm">
+                                暂无映射规则，请通过 CLI 终端添加。
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 吐司提示 -->
+        <div class="fixed bottom-5 right-5 z-50" x-show="toast.show" x-transition x-cloak>
+            <div class="bg-gray-800 text-white px-6 py-3 rounded shadow-lg flex items-center space-x-3">
+                <svg x-show="toast.type === 'success'" class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                <svg x-show="toast.type === 'error'" class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <span x-text="toast.message"></span>
+            </div>
+        </div>
+
+        <!-- 配置修改模态框 -->
+        <div x-show="configModal.open" class="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true" x-cloak>
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div x-show="configModal.open" x-transition.opacity class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" @click="configModal.open = false"></div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                <div x-show="configModal.open" x-transition class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">修改核心配置</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">公网 IP</label>
+                                <input type="text" x-model="configModal.data.serverIP" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">控制端口</label>
+                                <input type="text" x-model="configModal.data.listenPort" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">报警邮箱</label>
+                                <input type="text" x-model="configModal.data.email" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border px-3 py-2">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button type="button" @click="saveConfig" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">保存</button>
+                        <button type="button" @click="configModal.open = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 规则模态框 (新增/编辑) -->
+        <div x-show="mappingModal.open" class="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true" x-cloak>
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div x-show="mappingModal.open" x-transition.opacity class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" @click="mappingModal.open = false"></div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                <div x-show="mappingModal.open" x-transition class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4" x-text="mappingModal.isEdit ? '编辑规则' : '新增规则'"></h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">规则名称 (唯一)</label>
+                                <input type="text" x-model="mappingModal.data.name" :disabled="mappingModal.isEdit" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border px-3 py-2 disabled:bg-gray-100 disabled:text-gray-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">公网监听端口</label>
+                                <input type="number" x-model="mappingModal.data.publicPort" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border px-3 py-2" placeholder="例如: 8080">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">内网目标地址</label>
+                                <input type="text" x-model="mappingModal.data.targetAddr" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border px-3 py-2" placeholder="例如: 127.0.0.1:3306">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">限速 (字节/秒)</label>
+                                <input type="number" x-model.number="mappingModal.data.rateLimit" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border px-3 py-2" placeholder="默认 2097152 (2MB)">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button type="button" @click="saveMapping" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">保存</button>
+                        <button type="button" @click="mappingModal.open = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const generateCABtn = document.getElementById('generateCA');
-            const generateCertsBtn = document.getElementById('generateCerts');
-            const downloadCertsBtn = document.getElementById('downloadCerts');
-            const certMessage = document.getElementById('certMessage');
-            const certStatus = document.getElementById('certStatus');
+        function gotaxyApp() {
+            return {
+                isRunning: false,
+                config: {},
+                mappings: [],
+                toast: { show: false, message: '', type: 'success' },
+                configModal: { open: false, data: {} },
+                mappingModal: { open: false, isEdit: false, data: {} },
+                certForm: { caYear: 10, caOverwrite: false, certDays: 365 },
 
-            // 定期检查证书状态
-            function checkCertStatus() {
-                fetch('/api/cert-status')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            // 如果CA证书已更新，需要重新生成服务端和客户端证书
-                            if (data.data.needRegenerateCerts) {
-                                certStatus.textContent = '⚠️ CA证书已更新，请重新生成服务端和客户端证书';
-                                certStatus.className = 'message warning';
-                                certStatus.style.display = 'block';
-                                // 禁用下载按钮
-                                downloadCertsBtn.disabled = true;
-                            } else {
-                                certStatus.style.display = 'none';
-                                // 如果证书都已生成，启用下载按钮
-                                downloadCertsBtn.disabled = !(data.data.caExists && data.data.certsExist);
-                            }
+                init() {
+                    this.fetchStatus();
+                    this.fetchConfig();
+                    this.fetchMappings();
+                    
+                    // 每 3 秒自动刷新一次数据
+                    setInterval(() => {
+                        this.fetchStatus();
+                        this.fetchConfig();
+                        this.fetchMappings();
+                    }, 3000);
+                },
 
-                            // 根据CA证书是否存在，启用或禁用生成服务端和客户端证书按钮
-                            generateCertsBtn.disabled = !data.data.caExists;
-                        }
-                    })
-                    .catch(error => {
-                        console.error('检查证书状态失败:', error);
-                    });
-            }
+                showToast(msg, type = 'success') {
+                    this.toast.message = msg;
+                    this.toast.type = type;
+                    this.toast.show = true;
+                    setTimeout(() => { this.toast.show = false; }, 3000);
+                },
 
-            // 页面加载时检查一次证书状态
-            checkCertStatus();
+                async fetchStatus() {
+                    try {
+                        const res = await fetch('/api/status');
+                        const data = await res.json();
+                        this.isRunning = data.isRunning;
+                    } catch (e) { console.error(e); }
+                },
 
-            // 每5秒检查一次证书状态
-            setInterval(checkCertStatus, 5000);
+                async fetchConfig() {
+                    try {
+                        const res = await fetch('/api/config');
+                        this.config = await res.json();
+                    } catch (e) { console.error(e); }
+                },
 
-            // 生成CA证书
-            generateCABtn.addEventListener('click', function () {
-                certMessage.textContent = '正在生成根证书...';
-                certMessage.className = 'message';
+                async fetchMappings() {
+                    try {
+                        const res = await fetch('/api/mappings');
+                        this.mappings = await res.json() || [];
+                    } catch (e) { console.error(e); }
+                },
 
-                fetch('/api/generate-ca', {
-                    method: 'POST'
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            certMessage.textContent = data.message;
-                            certMessage.className = 'message success';
-                            // 立即检查证书状态
-                            checkCertStatus();
-                        } else {
-                            certMessage.textContent = '生成失败: ' + data.message;
-                            certMessage.className = 'message error';
-                        }
-                    })
-                    .catch(error => {
-                        certMessage.textContent = '请求失败: ' + error.message;
-                        certMessage.className = 'message error';
-                    });
-            });
+                openConfigModal() {
+                    this.configModal.data = {
+                        serverIP: this.config.serverIP,
+                        listenPort: this.config.listenPort,
+                        email: this.config.email
+                    };
+                    this.configModal.open = true;
+                },
 
-            // 生成服务端和客户端证书
-            generateCertsBtn.addEventListener('click', function () {
-                certMessage.textContent = '正在生成服务端和客户端证书...';
-                certMessage.className = 'message';
-
-                fetch('/api/generate-certs', {
-                    method: 'POST'
-                })
-                    .then(response => {
-                        if (!response.ok) {
-                            return response.text().then(text => {
-                                throw new Error(text);
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        certMessage.textContent = data.message;
-                        certMessage.className = 'message success';
-                        // 立即检查证书状态
-                        checkCertStatus();
-                    })
-                    .catch(error => {
-                        certMessage.textContent = '请求失败: ' + error.message;
-                        certMessage.className = 'message error';
-                    });
-            });
-
-            // 下载证书
-            downloadCertsBtn.addEventListener('click', function () {
-                // 如果按钮被禁用，不执行任何操作
-                if (this.disabled) {
-                    return;
-                }
-
-                // 直接触发下载，错误会在后端处理
-                window.location.href = '/api/download-certs';
-            });
-
-            // 映射管理相关代码
-            const mappingList = document.getElementById('mappingList');
-            const mappingModal = document.getElementById('mappingModal');
-            const mappingForm = document.getElementById('mappingForm');
-            const modalTitle = document.getElementById('modalTitle');
-            const mappingMessage = document.getElementById('mappingMessage');
-            const addMappingBtn = document.getElementById('addMappingBtn');
-            const refreshMappingsBtn = document.getElementById('refreshMappingsBtn');
-            const closeModalBtn = document.querySelector('.close');
-
-            // 加载映射列表
-            function loadMappings() {
-                fetch('/api/mappings')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            mappingList.innerHTML = '';
-                            if (data.data.length === 0) {
-                                mappingList.innerHTML = '<tr><td colspan="5" style="text-align: center;">暂无映射数据</td></tr>';
-                                return;
-                            }
-
-                            data.data.forEach(mapping => {
-                                const row = document.createElement('tr');
-                                row.innerHTML = `
-                                    <td>${mapping.id}</td>
-                                    <td>${mapping.name || '-'}</td>
-                                    <td>${mapping.publicPort}</td>
-                                    <td>${mapping.targetAddr}</td>
-                                    <td><span class="status-${mapping.enable}">${mapping.enable === 'running' ? '运行中' : '已停止'}</span></td>
-                                    <td>
-                                        <button class="btn-${mapping.enable === 'running' ? 'warning' : 'success'} toggle-mapping" data-id="${mapping.id}" data-enable="${mapping.enable === 'running' ? 'stopped' : 'running'}">
-                                            ${mapping.enable === 'running' ? '停止' : '启动'}
-                                        </button>
-                                        <button class="btn-danger delete-mapping" data-id="${mapping.id}">删除</button>
-                                    </td>
-                                `;
-                                mappingList.appendChild(row);
-                            });
-
-                            // 添加启用/禁用按钮事件
-                            document.querySelectorAll('.toggle-mapping').forEach(button => {
-                                button.addEventListener('click', function () {
-                                    const id = this.getAttribute('data-id');
-                                    const enable = this.getAttribute('data-enable');
-                                    toggleMapping(id, enable);
-                                });
-                            });
-
-                            // 添加删除按钮事件
-                            document.querySelectorAll('.delete-mapping').forEach(button => {
-                                button.addEventListener('click', function () {
-                                    const id = this.getAttribute('data-id');
-                                    if (confirm('确定要删除此映射吗？')) {
-                                        deleteMapping(id);
-                                    }
-                                });
-                            });
-                        } else {
-                            showMessage('加载映射列表失败: ' + (data.message || '未知错误'), 'error');
-                        }
-                    })
-                    .catch(error => {
-                        showMessage('加载映射列表失败: ' + error.message, 'error');
-                    });
-            }
-
-            // 显示消息
-            function showMessage(text, type) {
-                mappingMessage.textContent = text;
-                mappingMessage.className = 'message ' + type;
-                mappingMessage.style.display = 'block';
-
-                // 3秒后自动隐藏
-                setTimeout(() => {
-                    mappingMessage.style.display = 'none';
-                }, 3000);
-            }
-
-            // 打开添加映射模态框
-            addMappingBtn.addEventListener('click', function () {
-                modalTitle.textContent = '添加新映射';
-                mappingForm.reset();
-                mappingModal.style.display = 'block';
-            });
-
-            // 关闭模态框
-            closeModalBtn.addEventListener('click', function () {
-                mappingModal.style.display = 'none';
-            });
-
-            // 点击模态框外部关闭
-            window.addEventListener('click', function (event) {
-                if (event.target === mappingModal) {
-                    mappingModal.style.display = 'none';
-                }
-            });
-
-            // 刷新映射列表
-            refreshMappingsBtn.addEventListener('click', loadMappings);
-
-            // 删除映射
-            function deleteMapping(id) {
-                fetch(`/api/mapping/delete?id=${id}`, {
-                    method: 'POST'
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            showMessage('删除成功', 'success');
-                            loadMappings();
-                        } else {
-                            showMessage('删除失败: ' + (data.message || '未知错误'), 'error');
-                        }
-                    })
-                    .catch(error => {
-                        showMessage('删除失败: ' + error.message, 'error');
-                    });
-            }
-
-            // 启用/禁用映射
-            function toggleMapping(id, enable) {
-                fetch('/api/mapping/enable', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        id: parseInt(id),
-                        enable: enable
-                    })
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            showMessage(`映射${enable === 'running' ? '启用' : '禁用'}成功`, 'success');
-                            loadMappings();
-                        } else {
-                            showMessage(`映射${enable === 'running' ? '启用' : '禁用'}失败: ` + (data.message || '未知错误'), 'error');
-                        }
-                    })
-                    .catch(error => {
-                        showMessage(`映射${enable === 'running' ? '启用' : '禁用'}失败: ` + error.message, 'error');
-                    });
-            }
-
-            // 表单提交
-            mappingForm.addEventListener('submit', function (e) {
-                e.preventDefault();
-
-                const formData = {
-                    name: document.getElementById('name').value,
-                    publicPort: parseInt(document.getElementById('publicPort').value),
-                    targetAddr: document.getElementById('targetAddr').value,
-                    enable: 'stopped' // 默认为停止状态
-                };
-
-                fetch('/api/mapping/add', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            showMessage('添加成功', 'success');
-                            mappingModal.style.display = 'none';
-                            loadMappings();
-                        } else {
-                            showMessage('添加失败: ' + (data.message || '未知错误'), 'error');
-                        }
-                    })
-                    .catch(error => {
-                        showMessage('添加失败: ' + error.message, 'error');
-                    });
-            });
-
-            // 初始加载映射列表
-            loadMappings();
-        });
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // 获取配置数据并填充显示区域
-            fetch('/api/getConf')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('display-server_ip').textContent = data.server_ip;
-                    document.getElementById('display-listen_port').textContent = data.listen_port;
-                    document.getElementById('display-email').textContent = data.email;
-                });
-
-            // 修改配置按钮点击事件
-            document.getElementById('editConfigBtn').addEventListener('click', function() {
-                // 显示模态框
-                document.getElementById('config-modal').style.display = 'block';
-
-                // 填充表单数据
-                fetch('/api/getConf')
-                    .then(response => response.json())
-                    .then(data => {
-                        Object.keys(data).forEach(key => {
-                            if (document.getElementById(key)) {
-                                document.getElementById(key).value = data[key];
-                            }
+                async saveConfig() {
+                    try {
+                        const res = await fetch('/api/config/update', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.configModal.data)
                         });
-                    });
-            });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.showToast(data.message);
+                            this.configModal.open = false;
+                            this.fetchConfig();
+                        } else {
+                            this.showToast(data.error, 'error');
+                        }
+                    } catch (e) { this.showToast('保存失败', 'error'); }
+                },
 
-            // 关闭按钮点击事件
-            document.querySelector('.close').addEventListener('click', function() {
-                document.getElementById('config-modal').style.display = 'none';
-            });
+                openMappingModal(m = null) {
+                    if (m) {
+                        this.mappingModal.isEdit = true;
+                        this.mappingModal.data = {
+                            name: m.Name,
+                            publicPort: m.PublicPort,
+                            targetAddr: m.TargetAddr,
+                            rateLimit: m.RateLimit
+                        };
+                    } else {
+                        this.mappingModal.isEdit = false;
+                        this.mappingModal.data = {
+                            name: '',
+                            publicPort: '',
+                            targetAddr: '',
+                            rateLimit: 2097152
+                        };
+                    }
+                    this.mappingModal.open = true;
+                },
 
-            // 表单提交事件
-            document.getElementById('config-form').addEventListener('submit', function(e) {
-                e.preventDefault();
+                async saveMapping() {
+                    const endpoint = this.mappingModal.isEdit ? '/api/mappings/update' : '/api/mappings/add';
+                    // 确保 rateLimit 转换为数字
+                    this.mappingModal.data.rateLimit = Number(this.mappingModal.data.rateLimit) || 0;
+                    try {
+                        const res = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.mappingModal.data)
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.showToast(data.message);
+                            this.mappingModal.open = false;
+                            this.fetchMappings();
+                        } else {
+                            this.showToast(data.error, 'error');
+                        }
+                    } catch (e) { this.showToast('保存失败', 'error'); }
+                },
 
-                const formData = new FormData(this);
-                const configData = {};
+                async deleteMapping(name) {
+                    if (!confirm(`确定要删除映射规则 "${name}" 吗？`)) return;
+                    try {
+                        const res = await fetch('/api/mappings/delete', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.showToast(data.message);
+                            this.fetchMappings();
+                        } else {
+                            this.showToast(data.error, 'error');
+                        }
+                    } catch (e) { this.showToast('删除失败', 'error'); }
+                },
 
-                // 收集表单数据
-                for (const [key, value] of formData.entries()) {
-                    configData[key] = value;
-                }
+                async generateCA() {
+                    if (this.certForm.caOverwrite && !confirm('警告：覆盖 CA 将导致之前签发的所有证书失效！确认覆盖吗？')) {
+                        return;
+                    }
+                    try {
+                        const res = await fetch('/api/certs/ca', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ year: this.certForm.caYear, overwrite: this.certForm.caOverwrite })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.showToast(data.message);
+                        } else {
+                            this.showToast(data.error, 'error');
+                        }
+                    } catch (e) { this.showToast('请求失败', 'error'); }
+                },
 
-                // 发送更新请求
-                fetch('/api/updateConf', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(configData)
-                })
-                    .then(response => response.text())
-                    .then(message => {
-                        alert(message); // 显示成功消息
-                        // 更新显示区域
-                        document.getElementById('display-server_ip').textContent = configData.server_ip;
-                        document.getElementById('display-listen_port').textContent = configData.listen_port;
-                        document.getElementById('display-email').textContent = configData.email;
-                        // 关闭模态框
-                        document.getElementById('config-modal').style.display = 'none';
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('配置更新失败');
-                    });
-            });
+                async generateCerts() {
+                    try {
+                        const res = await fetch('/api/certs/server-client', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ days: this.certForm.certDays })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.showToast(data.message);
+                        } else {
+                            this.showToast(data.error, 'error');
+                        }
+                    } catch (e) { this.showToast('请求失败', 'error'); }
+                },
 
-            // 点击模态框外区域关闭模态框
-            window.onclick = function(event) {
-                var modal = document.getElementById('config-modal');
-                if (event.target == modal) {
-                    modal.style.display = 'none';
+                async startService() {
+                    try {
+                        const res = await fetch('/api/start', { method: 'POST' });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.showToast(data.message);
+                            this.isRunning = true;
+                        } else {
+                            this.showToast(data.error, 'error');
+                        }
+                    } catch (e) { this.showToast('请求失败', 'error'); }
+                },
+
+                async stopService() {
+                    try {
+                        const res = await fetch('/api/stop', { method: 'POST' });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.showToast(data.message);
+                            this.isRunning = false;
+                        } else {
+                            this.showToast(data.error, 'error');
+                        }
+                    } catch (e) { this.showToast('请求失败', 'error'); }
+                },
+
+                async toggleMapping(name, enable) {
+                    try {
+                        const res = await fetch('/api/mappings/toggle', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name, enable })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.showToast(data.message);
+                            this.fetchMappings(); // 立即刷新
+                        } else {
+                            this.showToast(data.error, 'error');
+                        }
+                    } catch (e) { this.showToast('操作失败', 'error'); }
+                },
+
+                formatBytes(bytes) {
+                    if (bytes === 0 || !bytes) return '0 B';
+                    const k = 1024;
+                    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
                 }
             }
-        });
-
-        // 服务状态相关代码
-        const serviceStatus = document.getElementById('serviceStatus');
-        const startServiceBtn = document.getElementById('startServiceBtn');
-        const stopServiceBtn = document.getElementById('stopServiceBtn');
-
-        // 获取服务状态
-        function getServiceStatus() {
-            fetch('/api/service')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        const isRunning = data.data.isRunning;
-                        if (isRunning === true) {
-                            serviceStatus.innerHTML = '<span class="status-running">服务已启动</span>';
-                            startServiceBtn.disabled = true;
-                            stopServiceBtn.disabled = false;
-                        } else {
-                            serviceStatus.innerHTML = '<span class="status-stopped">服务已停止</span>';
-                            startServiceBtn.disabled = false;
-                            stopServiceBtn.disabled = true;
-                        }
-                    } else {
-                        serviceStatus.innerHTML = '获取服务状态失败: ' + (data.message || '未知错误');
-                    }
-                })
-                .catch(error => {
-                    serviceStatus.innerHTML = '获取服务状态失败: ' + error.message;
-                });
         }
-
-        // 启动服务
-        startServiceBtn.addEventListener('click', function () {
-            fetch('/api/start', {
-                method: 'POST'
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'error') {
-                        alert(data.message); // 弹窗显示错误信息
-                        return;
-                    }
-                    // 成功启动，刷新服务状态
-                    getServiceStatus();
-                })
-                .catch(error => {
-                    console.error('启动服务失败:', error);
-                    alert('启动服务失败：' + error.message);
-                });
-        });
-
-        // 停止服务
-        stopServiceBtn.addEventListener('click', function () {
-            fetch('/api/stop', {
-                method: 'POST'
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'error') {
-                        alert(data.message); // 显示错误信息
-                        return;
-                    }
-
-                    // 成功停止，刷新服务状态
-                    getServiceStatus();
-                })
-                .catch(error => {
-                    console.error('停止服务失败:', error);
-                    alert('停止服务失败：' + error.message);
-                });
-        });
-
-
-        // 页面加载时获取一次服务状态
-        getServiceStatus();
-
-        // 每5秒检查一次服务状态
-        setInterval(getServiceStatus, 5000);
     </script>
-
 </body>
-
 </html>

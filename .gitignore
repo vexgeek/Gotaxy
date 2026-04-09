@@ -32,3 +32,8 @@ go.work.sum
 .idea
 
 !/docs/*.md
+logs/
+*.log
+certs/
+*.trae
+data/

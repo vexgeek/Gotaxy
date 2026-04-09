@@ -3,23 +3,20 @@ package shell
 import (
 	"context"
 	"fmt"
-	"github/JustGopher/Gotaxy/internal/tunnel/proxy"
 	"log"
 	"strconv"
 
-	"github/JustGopher/Gotaxy/internal/global"
 	"github/JustGopher/Gotaxy/internal/storage/models"
-	"github/JustGopher/Gotaxy/internal/tunnel/serverCore"
+	"github/JustGopher/Gotaxy/internal/tunnel"
+	"github/JustGopher/Gotaxy/internal/tunnel/proxy"
 	"github/JustGopher/Gotaxy/pkg/tlsgen"
 	"github/JustGopher/Gotaxy/pkg/utils"
 )
 
-// shell 全局变量
-var shell *Shell
+var shellInstance *Shell
 
-// RegisterCMD 注册命令
 func RegisterCMD(sh *Shell) {
-	shell = sh
+	shellInstance = sh
 	sh.Register("gen-ca", generateCA)
 	sh.Register("gen-certs", generateCerts)
 	sh.Register("start", start)
@@ -37,105 +34,96 @@ func RegisterCMD(sh *Shell) {
 	sh.Register("heart", Heart)
 }
 
-// OpenMapping 打开映射
-// 格式：open-mapping [映射名称]
 func OpenMapping(args []string) {
-	/**
-	1. 如果服务已启动，检查是否关闭，若未关闭，启动这个映射
-	2. 如果服务未启动，仅仅变动是否打开设置
-	*/
 	if len(args) != 1 {
 		fmt.Printf("无效的参数 '%s'，正确格式为：open-mapping [映射名称]\n", args)
 		return
 	}
 	name := args[0]
+	server := shellInstance.server
 
-	if !global.IsRun {
-		ok := global.ConnPool.UpdateEnable(name, true)
+	if !server.IsRun {
+		ok := server.Sessions.UpdateEnable(name, true)
 		if !ok {
 			fmt.Printf("规则 '%s' 不存在\n", name)
 			return
 		}
-		mapping := global.ConnPool.GetMapping(name)
-
-		updateMap, err := models.UpdateMap(global.DB, mapping.Name, mapping.PublicPort, mapping.TargetAddr, mapping.Enable, mapping.RateLimit)
+		mapping := server.Sessions.GetMapping(name)
+		updateMap, err := models.UpdateMap(server.DB, mapping.Name, mapping.PublicPort, mapping.TargetAddr, mapping.Enable, mapping.RateLimit)
 		if err != nil {
-			global.ErrorLog.Println("OpenMapping() 修改规则失败", err)
+			server.ErrorLog.Println("OpenMapping() 修改规则失败", err)
 			return
 		}
-		global.ErrorLog.Printf("OpenMapping() 修改 '%s' 成功", updateMap.Name)
+		server.ErrorLog.Printf("OpenMapping() 修改 '%s' 成功", updateMap.Name)
 	} else {
-		// 启动映射
-		ok := global.ConnPool.UpdateEnable(name, true)
+		ok := server.Sessions.UpdateEnable(name, true)
 		if !ok {
 			fmt.Printf("规则 '%s' 不存在\n", name)
 			return
 		}
-		mapping := global.ConnPool.GetMapping(name)
-		// 启动映射
+		mapping := server.Sessions.GetMapping(name)
 		mapping.Ctx, mapping.CtxCancel = context.WithCancel(context.Background())
-		go proxy.StartPublicListener(global.Ctx, mapping)
+		go proxy.StartPublicListener(server.Ctx, mapping, server)
 	}
 }
 
-// CloseMapping 关闭映射
-// 格式：close-mapping [映射名称]
 func CloseMapping(args []string) {
 	if len(args) != 1 {
 		fmt.Printf("无效的参数 '%s'，正确格式为：close-mapping [映射名称]\n", args)
 		return
 	}
 	name := args[0]
-	err := global.ConnPool.Close(name)
+	server := shellInstance.server
+
+	err := server.Sessions.CloseMapping(name)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
-	global.ConnPool.UpdateEnable(name, false)
-	fmt.Printf("关闭 '%s' 成功", name)
+	server.Sessions.UpdateEnable(name, false)
+	fmt.Printf("关闭 '%s' 成功\n", name)
 }
 
-// start 启动服务端
-// 格式：start
 func start(args []string) {
-	if global.IsRun {
+	server := shellInstance.server
+	if server.IsRun {
 		fmt.Println("服务已启动")
 		return
 	}
-	// 检查证书是否存在
 	if !tlsgen.CheckServerCertExist("certs") {
 		fmt.Println("证书缺失，请先生成证书")
 		return
 	}
-	global.Ctx, global.Cancel = context.WithCancel(context.Background())
-	go serverCore.StartServer(global.Ctx)
-	global.IsRun = true
+
+	// 注意这里不再重新生成全局 ctx
+	tunnelCtrl := tunnel.NewController(server)
+	go tunnelCtrl.Start()
+	server.SetRunStatus(true)
 }
 
-// stop 停止服务端
-// 格式：stop
 func stop(args []string) {
-	if !global.IsRun {
+	server := shellInstance.server
+	if !server.IsRun {
 		fmt.Println("服务未启动")
 		return
 	}
-	global.Cancel()
-	global.IsRun = false
+	if server.Cancel != nil {
+		server.Cancel()
+	}
+	server.SetRunStatus(false)
 }
 
-// generateCA 生成 CA 证书
-// 格式：gen-ca [有效期(年)] [-overwrite]
 func generateCA(args []string) {
 	year := 10
 	overwrite := false
 	length := len(args)
+	server := shellInstance.server
+
 	if length > 2 {
 		fmt.Printf("无效的参数 '%s'，正确格式为：gen-ca [有效期] [-overwrite]\n", args)
 		return
 	}
-	// 如果为一个参数
 	if length == 1 {
-		// 判断是整数还是 -overwrite
 		input := args[0]
 		if input == "-overwrite" {
 			overwrite = true
@@ -150,9 +138,7 @@ func generateCA(args []string) {
 			return
 		}
 	}
-	// 如果为两个参数
 	if length == 2 {
-		// 第一个参数为整数
 		if d, err := strconv.Atoi(args[0]); err == nil {
 			if d <= 0 {
 				fmt.Printf("无效的参数 '%s'，正确格式为：gen-ca [正整数] [-overwrite]\n", args[0])
@@ -163,7 +149,6 @@ func generateCA(args []string) {
 			fmt.Printf("无效的参数 '%s'，正确格式为：gen-ca [正整数] [-overwrite]\n", args[0])
 			return
 		}
-		// 第二个参数为 -overwrite
 		if args[1] != "-overwrite" {
 			fmt.Printf("无效的参数 '%s'，正确格式为：gen-ca [正整数] [-overwrite]\n", args[1])
 			return
@@ -171,13 +156,12 @@ func generateCA(args []string) {
 			overwrite = true
 		}
 	}
-	// 询问是否确定重新生成 CA 证书
 	if overwrite {
 		for {
 			fmt.Printf("确定要重新生成 CA 证书吗？(y/n) \n")
-			readline, err := shell.Rl.Readline()
+			readline, err := shellInstance.Rl.Readline()
 			if err != nil {
-				global.ErrorLog.Printf("generateCA() shellcmd.Rl.Readline() 读取输入失败: %v", err)
+				server.ErrorLog.Printf("generateCA() shellcmd.Rl.Readline() 读取输入失败: %v", err)
 				fmt.Println("读取输入失败:", err)
 				return
 			}
@@ -192,29 +176,23 @@ func generateCA(args []string) {
 			}
 		}
 	}
-	// 生成 CA 证书
 	err := tlsgen.GenerateCA("certs", year, overwrite)
 	if err != nil {
-		global.ErrorLog.Printf("generateCA() 生成 CA 证书失败: %v", err)
+		server.ErrorLog.Printf("generateCA() 生成 CA 证书失败: %v", err)
 		log.Println("generateCA() 生成 CA 证书失败:", err)
 		return
 	}
 }
 
-// generateCerts 生成 server 和 client 证书
-// 格式：gen-certs [有效期(日)]
 func generateCerts(args []string) {
-	// 默认天数
 	day := 365
-
-	// 校验数量
 	length := len(args)
+	server := shellInstance.server
+
 	if length > 1 {
 		fmt.Printf("无效的参数 '%s'，正确格式为：gen-certs [正整数]\n", args)
 		return
 	}
-
-	// 解析参数
 	if len(args) == 1 {
 		d, err := strconv.Atoi(args[0])
 		if err != nil || d <= 0 {
@@ -224,27 +202,24 @@ func generateCerts(args []string) {
 		day = d
 	}
 
-	// 生成证书
-	err := tlsgen.GenerateServerAndClientCerts(global.Config.ServerIP, "certs", day, "certs/ca.crt", "certs/ca.key")
+	err := tlsgen.GenerateServerAndClientCerts(server.Config.ServerIP, "certs", day, "certs/ca.crt", "certs/ca.key")
 	if err != nil {
-		global.ErrorLog.Printf("generateCerts() 生成证书失败: %v", err)
+		server.ErrorLog.Printf("generateCerts() 生成证书失败: %v", err)
 		log.Println("generateCerts() 生成证书失败:", err)
 		return
 	}
 }
 
-// showConfig 显示服务端配置
-// 格式：show-config
 func showConfig(args []string) {
-	fmt.Println(" IP         ：", global.Config.ServerIP)
-	fmt.Println(" ListenPort ：", global.Config.ListenPort)
-	fmt.Println(" Email      ：", global.Config.Email)
+	server := shellInstance.server
+	fmt.Println(" IP         ：", server.Config.ServerIP)
+	fmt.Println(" ListenPort ：", server.Config.ListenPort)
+	fmt.Println(" Email      ：", server.Config.Email)
 }
 
-// showMapping 显示映射
-// 格式：show-mapping
 func showMapping(args []string) {
-	mpg := global.ConnPool.All()
+	server := shellInstance.server
+	mpg := server.Sessions.GetAllMappings()
 
 	fmt.Println("Name\tPublicPort\tTargetAddr\t\tStatus\t\tEnable\t\tTraffic\t\tRateLimit")
 
@@ -253,11 +228,10 @@ func showMapping(args []string) {
 	}
 }
 
-// setIP 设置服务端 IP
-// 格式：set-ip <ip>
 func setIP(args []string) {
-	// 校验数量
 	length := len(args)
+	server := shellInstance.server
+
 	if length == 0 {
 		fmt.Println("参数不能为空，正确格式为：set-ip <ip>")
 		return
@@ -266,31 +240,28 @@ func setIP(args []string) {
 		fmt.Printf("无效的参数 '%s'，正确格式为：set-ip <ip>\n", args)
 		return
 	}
-	// 解析参数
 	ip := args[0]
 	if ip == "" {
 		fmt.Println("IP地址不能为空")
 		return
 	}
-	// 使用正则表达式验证 IP 格式
 	if !utils.IsValidateIP(ip) {
 		fmt.Println("IP地址格式不正确")
 		return
 	}
-	// 设置 IP
-	global.Config.ServerIP = ip
-	err := models.UpdateCfg(global.DB, "server_ip", ip)
+	server.Config.ServerIP = ip
+	err := models.UpdateCfg(server.DB, "server_ip", ip)
 	if err != nil {
-		global.ErrorLog.Printf("setIP() 更新配置数据失败: %v", err)
+		server.ErrorLog.Printf("setIP() 更新配置数据失败: %v", err)
 		fmt.Println("更新配置数据失败:", err)
 		return
 	}
 }
 
-// setPort 设置服务端 Post
-// 格式：set-port <port>
 func setPort(args []string) {
 	length := len(args)
+	server := shellInstance.server
+
 	if length != 1 {
 		fmt.Printf("无效的参数 '%s'，正确格式为：set-port <port>\n", args)
 		return
@@ -302,17 +273,17 @@ func setPort(args []string) {
 		return
 	}
 
-	global.Config.ListenPort = args[0]
-	err = models.UpdateCfg(global.DB, "listen_port", args[0])
+	server.Config.ListenPort = args[0]
+	err = models.UpdateCfg(server.DB, "listen_port", args[0])
 	if err != nil {
 		return
 	}
 }
 
-// setEmail 设置服务端 Email
-// 格式：set-email <email>
 func setEmail(args []string) {
 	length := len(args)
+	server := shellInstance.server
+
 	if length != 1 {
 		fmt.Printf("无效的参数 '%s'，正确格式为：set-email <email>\n", args)
 		return
@@ -328,19 +299,19 @@ func setEmail(args []string) {
 		return
 	}
 
-	global.Config.Email = args[0]
-	err := models.UpdateCfg(global.DB, "email", args[0])
+	server.Config.Email = args[0]
+	err := models.UpdateCfg(server.DB, "email", args[0])
 	if err != nil {
-		global.ErrorLog.Printf("setEmail() 更新配置数据失败: %v", err)
+		server.ErrorLog.Printf("setEmail() 更新配置数据失败: %v", err)
 		fmt.Println("更新配置数据失败:", err)
 		return
 	}
 }
 
-// AddMapping 设置映射
-// 格式：add-mapping <name> <public_port> <target_addr>
 func AddMapping(args []string) {
 	length := len(args)
+	server := shellInstance.server
+
 	if length != 3 {
 		fmt.Printf("无效的参数 '%s'，正确格式为：add-mapping <name> <public_port> <target_addr>\n", args)
 		return
@@ -362,7 +333,7 @@ func AddMapping(args []string) {
 		return
 	}
 
-	err = models.InsertMpg(global.DB, models.Mapping{
+	err = models.InsertMpg(server.DB, models.Mapping{
 		Name:       args[0],
 		PublicPort: args[1],
 		TargetAddr: args[2],
@@ -371,15 +342,13 @@ func AddMapping(args []string) {
 		RateLimit:  1024 * 1024 * 2,
 	})
 	if err != nil {
-		global.ErrorLog.Printf("addMapping() 插入映射数据失败: %v", err)
+		server.ErrorLog.Printf("addMapping() 插入映射数据失败: %v", err)
 		fmt.Println("插入映射数据失败:", err)
 		return
 	}
-	global.ConnPool.Set(args[0], args[1], args[2], false, 0, 2048)
+	server.Sessions.SetMapping(args[0], args[1], args[2], false, 0, 2048)
 }
 
-// DelMapping 删除映射
-// 格式：del-mapping <name>
 func DelMapping(args []string) {
 	if len(args) != 1 {
 		fmt.Printf("无效的参数 '%s'，正确格式为：del-mapping <name>\n", args)
@@ -389,7 +358,8 @@ func DelMapping(args []string) {
 		fmt.Println("参数缺失!，正确格式为：del-mapping <name>")
 		return
 	}
-	mpg := global.ConnPool.GetMapping(args[0])
+	server := shellInstance.server
+	mpg := server.Sessions.GetMapping(args[0])
 	if mpg == nil {
 		fmt.Println("映射不存在，请检查name是否正确")
 		return
@@ -400,18 +370,16 @@ func DelMapping(args []string) {
 		return
 	}
 
-	global.ConnPool.Delete(mpg.Name)
+	server.Sessions.DeleteMapping(mpg.Name)
 
-	err := models.DeleteMapByName(global.DB, args[0])
+	err := models.DeleteMapByName(server.DB, args[0])
 	if err != nil {
-		global.ErrorLog.Printf("delMapping() 删除映射数据失败: %v", err)
+		server.ErrorLog.Printf("delMapping() 删除映射数据失败: %v", err)
 		fmt.Println("删除映射数据失败:", err)
 		return
 	}
 }
 
-// UpdMapping 更新映射
-// 格式：upd-mapping <name> <port> <addr> <rate_limit>
 func UpdMapping(args []string) {
 	if len(args) != 4 {
 		fmt.Printf("无效的参数 '%s'，正确格式为：upd-mapping <name> <port> <addr> <rate_limit>\n", args)
@@ -423,7 +391,9 @@ func UpdMapping(args []string) {
 		return
 	}
 
-	if global.ConnPool.GetMapping(args[0]).Status == "active" {
+	server := shellInstance.server
+
+	if server.Sessions.GetMapping(args[0]).Status == "active" {
 		fmt.Println("当前映射正在运行中，无法更新，请关闭后重试")
 		return
 	}
@@ -445,20 +415,17 @@ func UpdMapping(args []string) {
 		return
 	}
 
-	enable := global.ConnPool.GetMapping(args[0]).Enable
+	enable := server.Sessions.GetMapping(args[0]).Enable
 
-	_, err = models.UpdateMap(global.DB, args[0], args[1], args[2], enable, int64(retaLimit))
+	_, err = models.UpdateMap(server.DB, args[0], args[1], args[2], enable, int64(retaLimit))
 	if err != nil {
-		global.ErrorLog.Printf("updMapping() 更新映射数据失败: %v", err)
+		server.ErrorLog.Printf("updMapping() 更新映射数据失败: %v", err)
 		fmt.Println("更新映射数据失败:", err)
 		return
 	}
-	global.ConnPool.Update(args[0], args[1], args[2], int64(retaLimit))
-
+	server.Sessions.UpdateMapping(args[0], args[1], args[2], int64(retaLimit))
 }
 
-// Heart 心跳
-// 格式：heart
 func Heart(args []string) {
-	fmt.Println(global.Ring.Status(global.IsRun))
+	fmt.Println("心跳机制已重构为基于事件总线的异步报警模式，日志详见错误日志。")
 }

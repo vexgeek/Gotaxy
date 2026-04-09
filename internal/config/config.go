@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github/JustGopher/Gotaxy/internal/pool"
+	"github/JustGopher/Gotaxy/internal/session"
 	"github/JustGopher/Gotaxy/internal/storage/models"
 )
 
@@ -19,7 +19,7 @@ type Config struct {
 }
 
 // ConfigLoad 配置加载
-func (cfg *Config) ConfigLoad(db *sql.DB, pool *pool.Pool) {
+func (cfg *Config) ConfigLoad(db *sql.DB, sessionMgr *session.Manager) {
 	cfgMap, err := models.GetAllCfg(db)
 	if err != nil {
 		fmt.Printf("ConfigLoad() 查询配置数据失败 -> %v", err)
@@ -65,9 +65,9 @@ func (cfg *Config) ConfigLoad(db *sql.DB, pool *pool.Pool) {
 	}
 	for _, v := range mpg {
 		if v.Enable {
-			pool.Set(v.Name, v.PublicPort, v.TargetAddr, true, v.Traffic, v.RateLimit)
+			sessionMgr.SetMapping(v.Name, v.PublicPort, v.TargetAddr, true, v.Traffic, v.RateLimit)
 		} else {
-			pool.Set(v.Name, v.PublicPort, v.TargetAddr, false, v.Traffic, v.RateLimit)
+			sessionMgr.SetMapping(v.Name, v.PublicPort, v.TargetAddr, false, v.Traffic, v.RateLimit)
 		}
 	}
 }

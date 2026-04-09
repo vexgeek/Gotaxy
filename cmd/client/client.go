@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github/JustGopher/Gotaxy/internal/tunnel/clientCore"
 	"os"
 	"strings"
+
+	"github/JustGopher/Gotaxy/internal/client"
 )
 
 func main() {
@@ -37,7 +38,7 @@ func main() {
 	}
 
 	serverAddr := flag["-h"] + ":" + flag["-p"]
-	clientCore.Start(serverAddr, flag["-crt"], flag["-key"], flag["-ca"])
+	client.Start(serverAddr, flag["-crt"], flag["-key"], flag["-ca"])
 }
 
 // 显示帮助信息
