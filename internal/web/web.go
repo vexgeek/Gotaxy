@@ -31,7 +31,28 @@ func NewWebServer(server *core.GotaxyServer) *WebServer {
 
 func (w *WebServer) Start(port string) {
 	gin.SetMode(gin.ReleaseMode)
-	r := gin.Default()
+
+	// 使用 New() 而不是 Default() 来避免默认的 Logger 中间件
+	r := gin.New()
+
+	// 自定义 Logger 中间件，静默掉所有状态码 < 400（即成功）的响应日志，只打印异常/错误请求
+	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		if param.StatusCode < 400 {
+			return ""
+		}
+
+		// 对于异常或错误状态，使用默认格式打印详细信息
+		return fmt.Sprintf("[GIN] %v | %3d | %13v | %15s | %-7s %#v\n%s",
+			param.TimeStamp.Format("2006/01/02 - 15:04:05"),
+			param.StatusCode,
+			param.Latency,
+			param.ClientIP,
+			param.Method,
+			param.Path,
+			param.ErrorMessage,
+		)
+	}))
+	r.Use(gin.Recovery())
 
 	// 加载嵌入的模板
 	templ := template.Must(template.ParseFS(tmplFS, "templates/*.html"))
