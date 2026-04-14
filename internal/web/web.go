@@ -98,6 +98,9 @@ func (w *WebServer) startServiceHandler(c *gin.Context) {
 		return
 	}
 
+	// 重新生成 Context
+	w.server.Ctx, w.server.Cancel = context.WithCancel(context.Background())
+
 	tunnelCtrl := tunnel.NewController(w.server)
 	go tunnelCtrl.Start()
 	w.server.SetRunStatus(true)

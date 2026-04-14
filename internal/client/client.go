@@ -31,6 +31,9 @@ func Start(serverAddr, certFile, keyFile, caFile string) {
 	maxDelay := 30 * time.Second
 	currentDelay := baseDelay
 
+	// 测试服务，实际使用时通常会注释掉这行
+	// go HelloServe()
+	
 	for {
 		log.Printf("🔗 正在建立 TLS 连接...")
 		conn, err := tls.Dial("tcp", serverAddr, tlsCfg)
@@ -58,7 +61,6 @@ func Start(serverAddr, certFile, keyFile, caFile string) {
 		}
 		log.Println("✅ 隧道会话 (smux) 创建成功，等待转发请求...")
 
-		//go HelloServe()
 
 		// 处理该会话的流
 		handleSession(session)
