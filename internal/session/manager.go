@@ -10,15 +10,15 @@ import (
 
 // Mapping 单个映射关系
 type Mapping struct {
-	Name       string             // 规则名称
-	PublicPort string             // 公网监听端口
-	TargetAddr string             // 映射目标地址
-	Ctx        context.Context    // 上下文，用于关闭连接
-	CtxCancel  context.CancelFunc // 上下文取消函数
-	Traffic    int64              // 流量统计
-	RateLimit  int64              // 流量限速
-	Status     string             // 连接状态
-	Enable     bool               // 是否启用
+	Name       string             `json:"name"`       // 规则名称
+	PublicPort string             `json:"publicPort"` // 公网监听端口
+	TargetAddr string             `json:"targetAddr"` // 映射目标地址
+	Ctx        context.Context    `json:"-"`          // 上下文，用于关闭连接 (忽略 JSON 序列化)
+	CtxCancel  context.CancelFunc `json:"-"`          // 上下文取消函数 (忽略 JSON 序列化)
+	Traffic    int64              `json:"traffic"`    // 流量统计
+	RateLimit  int64              `json:"rateLimit"`  // 流量限速
+	Status     string             `json:"status"`     // 连接状态
+	Enable     bool               `json:"enable"`     // 是否启用
 }
 
 // ClientSession 包装了单个客户端的连接会话
