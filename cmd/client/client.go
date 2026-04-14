@@ -1,60 +1,38 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
-	"strings"
 
 	"github/JustGopher/Gotaxy/internal/client"
 )
 
 func main() {
-	// 预设默认值
-	flag := map[string]string{
-		"-h":   "127.0.0.1",
-		"-p":   "9000",
-		"-ca":  "certs/ca.crt",
-		"-crt": "certs/client.crt",
-		"-key": "certs/client.key",
+	var (
+		host     = flag.String("h", "127.0.0.1", "服务端的公网 IP 或域名")
+		port     = flag.String("p", "9000", "服务端控制监听端口")
+		caFile   = flag.String("ca", "certs/ca.crt", "CA 根证书路径")
+		certFile = flag.String("crt", "certs/client.crt", "客户端证书路径")
+		keyFile  = flag.String("key", "certs/client.key", "客户端私钥路径")
+	)
+
+	// 自定义帮助信息
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "🚀 Gotaxy Client - 安全的内网穿透客户端\n\n")
+		fmt.Fprintf(os.Stderr, "用法:\n")
+		fmt.Fprintf(os.Stderr, "  go run cmd/client/client.go -h <host> -p <port> [options]\n\n")
+		fmt.Fprintf(os.Stderr, "选项:\n")
+		flag.PrintDefaults()
 	}
 
-	for i, arg := range os.Args {
-		switch arg {
-		case "--help", "-help":
-			showHelp()
-			os.Exit(0)
-		case "-h", "-p", "-ca", "-crt", "-key":
-			if i+1 >= len(os.Args) {
-				fmt.Println("错误：参数后面缺少值")
-				os.Exit(1)
-			}
-			nextArg := os.Args[i+1]
-			if strings.HasPrefix(nextArg, "-") {
-				fmt.Println("错误：参数后面缺少值，不能是另一个参数")
-				os.Exit(1)
-			}
-			flag[arg] = nextArg
-		}
-	}
+	flag.Parse()
 
-	serverAddr := flag["-h"] + ":" + flag["-p"]
-	client.Start(serverAddr, flag["-crt"], flag["-key"], flag["-ca"])
-}
+	// 打印欢迎信息
+	fmt.Println("========================================")
+	fmt.Println("🚀 Gotaxy Client - 启动中...")
+	fmt.Println("========================================")
 
-// 显示帮助信息
-func showHelp() {
-	fmt.Println(`Usage:
-  go run cmd/client/client.go -h [host] -p <port> [-ca <ca-cert-path>] [-crt <client-cert-path>] [-key <private-key-path>]
-
-Options:
-  -h [host]     
-        The hostname or IP address of the server (default "127.0.0.1")
-  -p <port>
-        The port number to connect to (default 9000)
-  -ca <ca-cert-path>
-        Path to the CA certificate file (default "certs/ca.crt")
-  -crt <client-cert-path>
-        Path to the client certificate file (default "certs/client.crt")
-  -key <private-key-path>
-        Path to the client private key file (default "certs/client.key")`)
+	serverAddr := fmt.Sprintf("%s:%s", *host, *port)
+	client.Start(serverAddr, *certFile, *keyFile, *caFile)
 }

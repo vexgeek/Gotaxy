@@ -18,28 +18,31 @@ import (
 
 // Start 启动客户端
 func Start(serverAddr, certFile, keyFile, caFile string) {
-	fmt.Println(serverAddr, certFile, keyFile, caFile)
+	log.Printf("🔌 正在准备连接服务端 [%s]...", serverAddr)
+	log.Printf("🔐 正在加载 mTLS 证书 (ca: %s, crt: %s, key: %s)...", caFile, certFile, keyFile)
+
 	tlsCfg, err := LoadClientTLSConfig(certFile, keyFile, caFile)
 	if err != nil {
-		log.Fatalf("加载 TLS 配置失败: %v", err)
+		log.Fatalf("❌ 加载 TLS 配置失败: %v", err)
 	}
 
+	log.Printf("🔗 正在建立 TLS 连接...")
 	conn, err := tls.Dial("tcp", serverAddr, tlsCfg)
 	if err != nil {
-		log.Fatalf("连接服务端失败（TLS）: %v", err)
+		log.Fatalf("❌ 连接服务端失败: %v\n(请检查网络、IP端口以及证书是否匹配)", err)
 	}
-	log.Println("已通过 TLS 连接服务端")
+	log.Println("✅ 已通过 TLS 安全连接到服务端")
 
 	session, err := smux.Client(conn, nil)
 	if err != nil {
-		log.Fatalf("创建 smux 客户端会话失败: %v", err)
+		log.Fatalf("❌ 创建多路复用会话失败: %v", err)
 	}
-	log.Println("smux 会话创建成功")
+	log.Println("✅ 隧道会话 (smux) 创建成功，等待转发请求...")
 
 	for {
 		stream, err := session.AcceptStream()
 		if err != nil {
-			log.Println("接受 stream 失败:", err)
+			log.Println("⚠️ 接受数据流 (stream) 失败:", err)
 			return
 		}
 		go handleStream(stream)
@@ -76,7 +79,7 @@ func handleStream(stream *smux.Stream) {
 	reader := bufio.NewReader(stream)
 	header, err := reader.ReadString('\n')
 	if err != nil {
-		log.Println("读取指令头失败:", err)
+		log.Println("⚠️ 读取指令头失败:", err)
 		_ = stream.Close()
 		return
 	}
@@ -90,13 +93,15 @@ func handleStream(stream *smux.Stream) {
 	case "DIRECT":
 		target, err := reader.ReadString('\n')
 		if err != nil {
-			log.Println("读取目标地址失败:", err)
+			log.Println("⚠️ 读取目标地址失败:", err)
 			_ = stream.Close()
 			return
 		}
-		handleForward(strings.TrimSpace(target), stream)
+		target = strings.TrimSpace(target)
+		log.Printf("⚡ 收到转发请求，目标本地服务: %s", target)
+		handleForward(target, stream)
 	default:
-		log.Println("未知类型流:", header)
+		log.Println("⚠️ 收到未知指令类型:", header)
 		_ = stream.Close()
 	}
 }
@@ -104,12 +109,12 @@ func handleStream(stream *smux.Stream) {
 func handleForward(target string, stream *smux.Stream) {
 	localConn, err := net.Dial("tcp", target)
 	if err != nil {
-		log.Printf("连接本地服务 %s 失败: %v", target, err)
+		log.Printf("❌ 连接本地服务 [%s] 失败: %v", target, err)
 		_ = stream.Close()
 		return
 	}
 
-	log.Printf("转发连接 %s <=> %s", stream.RemoteAddr(), target)
+	log.Printf("🔄 开始数据转发: 服务端 (%s) <=> 本地 (%s)", stream.RemoteAddr(), target)
 	go proxy(stream, localConn)
 	go proxy(localConn, stream)
 }
