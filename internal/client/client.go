@@ -26,23 +26,55 @@ func Start(serverAddr, certFile, keyFile, caFile string) {
 		log.Fatalf("❌ 加载 TLS 配置失败: %v", err)
 	}
 
-	log.Printf("🔗 正在建立 TLS 连接...")
-	conn, err := tls.Dial("tcp", serverAddr, tlsCfg)
-	if err != nil {
-		log.Fatalf("❌ 连接服务端失败: %v\n(请检查网络、IP端口以及证书是否匹配)", err)
-	}
-	log.Println("✅ 已通过 TLS 安全连接到服务端")
+	// 指数退避重连参数
+	baseDelay := 2 * time.Second
+	maxDelay := 30 * time.Second
+	currentDelay := baseDelay
 
-	session, err := smux.Client(conn, nil)
-	if err != nil {
-		log.Fatalf("❌ 创建多路复用会话失败: %v", err)
-	}
-	log.Println("✅ 隧道会话 (smux) 创建成功，等待转发请求...")
+	for {
+		log.Printf("🔗 正在建立 TLS 连接...")
+		conn, err := tls.Dial("tcp", serverAddr, tlsCfg)
+		if err != nil {
+			log.Printf("❌ 连接服务端失败: %v", err)
+			log.Printf("⏳ 将在 %v 后尝试重新连接...", currentDelay)
+			time.Sleep(currentDelay)
+			currentDelay *= 2
+			if currentDelay > maxDelay {
+				currentDelay = maxDelay
+			}
+			continue
+		}
 
+		// 连接成功，重置退避时间
+		currentDelay = baseDelay
+		log.Println("✅ 已通过 TLS 安全连接到服务端")
+
+		session, err := smux.Client(conn, nil)
+		if err != nil {
+			log.Printf("❌ 创建多路复用会话失败: %v", err)
+			_ = conn.Close()
+			time.Sleep(currentDelay)
+			continue
+		}
+		log.Println("✅ 隧道会话 (smux) 创建成功，等待转发请求...")
+
+		//go HelloServe()
+
+		// 处理该会话的流
+		handleSession(session)
+
+		// 会话结束（通常是因为网络断开）
+		log.Println("⚠️ 与服务端的连接已断开，准备重连...")
+	}
+}
+
+// handleSession 处理单个会话的生命周期
+func handleSession(session *smux.Session) {
+	defer session.Close()
 	for {
 		stream, err := session.AcceptStream()
 		if err != nil {
-			log.Println("⚠️ 接受数据流 (stream) 失败:", err)
+			log.Println("⚠️ 接受数据流 (stream) 失败，可能是连接已断开:", err)
 			return
 		}
 		go handleStream(stream)
@@ -139,7 +171,7 @@ func HelloServe() {
 		_, _ = w.Write([]byte(timeNow))
 	})
 
-	err := http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8081", nil)
 	if err != nil {
 		panic(err)
 	}
