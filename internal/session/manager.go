@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	"github.com/xtaci/smux"
 )
@@ -136,11 +137,25 @@ func (m *Manager) CloseMapping(name string) error {
 }
 
 func (m *Manager) AddTraffic(name string, traffic int64) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if mapping, ok := m.table[name]; ok {
-		mapping.Traffic += traffic
+	m.mu.RLock()
+	mapping, ok := m.table[name]
+	m.mu.RUnlock()
+
+	if ok {
+		atomic.AddInt64(&mapping.Traffic, traffic)
 	}
+}
+
+// GetTraffic 获取特定映射的安全流量值
+func (m *Manager) GetTraffic(name string) int64 {
+	m.mu.RLock()
+	mapping, ok := m.table[name]
+	m.mu.RUnlock()
+
+	if ok {
+		return atomic.LoadInt64(&mapping.Traffic)
+	}
+	return 0
 }
 
 // ---- Session 管理部分 ----

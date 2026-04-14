@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github/JustGopher/Gotaxy/internal/alert"
@@ -54,7 +55,7 @@ func NewServer(db *sql.DB, infoLog, errorLog *log.Logger) *GotaxyServer {
 		payload, ok := e.Payload.(eventbus.TrafficReportPayload)
 		if ok {
 			sessMgr.AddTraffic(payload.MappingName, payload.Bytes)
-			cfg.TotalTraffic += payload.Bytes
+			atomic.AddInt64(&cfg.TotalTraffic, payload.Bytes)
 		}
 	})
 
@@ -82,8 +83,9 @@ func (s *GotaxyServer) startTrafficPersistence() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		// 1. 更新总流量
-		totalStr := strconv.FormatInt(s.Config.TotalTraffic, 10)
+		// 1. 更新总流量 (原子读取)
+		currentTotal := atomic.LoadInt64(&s.Config.TotalTraffic)
+		totalStr := strconv.FormatInt(currentTotal, 10)
 		err := models.UpdateCfg(s.DB, "total_traffic", totalStr)
 		if err != nil {
 			s.ErrorLog.Printf("持久化总流量失败: %v", err)
