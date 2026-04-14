@@ -13,7 +13,9 @@ func main() {
 
 	// 2. 初始化数据库
 	db := inits.DBInit(errorLog)
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	// 3. 实例化并组装核心服务器
 	server := core.NewServer(db, infoLog, errorLog)

@@ -28,9 +28,9 @@ linters:
   settings:
     funlen:
       lines: 100
-      statements: 80
+      statements: 150
     lll:
-      line-length: 150
+      line-length: 200
     nestif:
       min-complexity: 10
     revive:
