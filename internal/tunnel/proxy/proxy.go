@@ -98,13 +98,13 @@ func StartPublicListener(ctx context.Context, mapping *session.Mapping, server *
 		}
 
 		fmt.Printf("建立转发: 端口 %s <=> 客户端本地 %s\n", pubPort, target)
-		go rateLimitedProxy(mapping.Ctx, server.Ctx, publicConn, stream, limiter, nil, server)
-		go rateLimitedProxy(mapping.Ctx, server.Ctx, stream, publicConn, limiter, mapping, server)
+		go rateLimitedProxy(mapping.Ctx, publicConn, stream, limiter, nil, server)
+		go rateLimitedProxy(mapping.Ctx, stream, publicConn, limiter, mapping, server)
 	}
 }
 
 // rateLimitedProxy 使用 rate.Limiter 限制速率的代理
-func rateLimitedProxy(mappingCtx context.Context, serverCtx context.Context, dst, src net.Conn, limiter *rate.Limiter, mapping *session.Mapping, server *core.GotaxyServer) {
+func rateLimitedProxy(ctx context.Context, dst, src net.Conn, limiter *rate.Limiter, mapping *session.Mapping, server *core.GotaxyServer) {
 	defer func(dst net.Conn) {
 		_ = dst.Close()
 	}(dst)
@@ -116,9 +116,7 @@ func rateLimitedProxy(mappingCtx context.Context, serverCtx context.Context, dst
 
 	for {
 		select {
-		case <-mappingCtx.Done():
-			return
-		case <-serverCtx.Done():
+		case <-ctx.Done():
 			return
 		default:
 		}
@@ -131,7 +129,7 @@ func rateLimitedProxy(mappingCtx context.Context, serverCtx context.Context, dst
 			break
 		}
 
-		err = limiter.WaitN(mappingCtx, n)
+		err = limiter.WaitN(ctx, n)
 		if err != nil {
 			server.ErrorLog.Println("限流失败:", err)
 			break

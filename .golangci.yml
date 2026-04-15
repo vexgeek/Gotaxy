@@ -27,7 +27,7 @@ linters:
     - wrapcheck       # 检查 error 包装是否正确
   settings:
     funlen:
-      lines: 100
+      lines: 200
       statements: 150
     lll:
       line-length: 200

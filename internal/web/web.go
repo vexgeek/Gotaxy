@@ -178,7 +178,8 @@ func (w *WebServer) toggleMappingHandler(c *gin.Context) {
 			return
 		}
 		mapping := w.server.Sessions.GetMapping(req.Name)
-		mapping.Ctx, mapping.CtxCancel = context.WithCancel(context.Background())
+		// 从全局的 server.Ctx 派生
+		mapping.Ctx, mapping.CtxCancel = context.WithCancel(w.server.Ctx)
 		go proxy.StartPublicListener(w.server.Ctx, mapping, w.server)
 		c.JSON(http.StatusOK, gin.H{"message": "规则已开启"})
 	} else {

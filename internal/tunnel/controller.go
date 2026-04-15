@@ -34,7 +34,8 @@ func (c *Controller) Start() {
 	allMappings := c.server.Sessions.GetAllMappings()
 	for _, mapping := range allMappings {
 		if mapping.Enable {
-			mapping.Ctx, mapping.CtxCancel = context.WithCancel(context.Background())
+			// 让 mapping.Ctx 从 server.Ctx 派生，这样 server.Ctx 被取消时，所有的 mapping.Ctx 都会被自动取消
+			mapping.Ctx, mapping.CtxCancel = context.WithCancel(c.server.Ctx)
 			go proxy.StartPublicListener(c.server.Ctx, mapping, c.server)
 		}
 	}
