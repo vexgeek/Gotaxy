@@ -22,7 +22,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
       # 安装golangci-lint
       - name: Install golangci-lint
         uses: golangci/golangci-lint-action@v7
@@ -33,7 +33,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.2.2
+          version: latest
           args: --config=.golangci.yml
-          verify: true  # 跳过 config verify
           only-new-issues: false
+          skip-config-verify: true
