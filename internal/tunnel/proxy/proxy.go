@@ -98,7 +98,10 @@ func StartPublicListener(ctx context.Context, mapping *session.Mapping, server *
 		}
 
 		fmt.Printf("建立转发: 端口 %s <=> 客户端本地 %s\n", pubPort, target)
+
+		//nolint:contextcheck // mapping.Ctx is already derived from server.Ctx, suppressing linter warning
 		go rateLimitedProxy(mapping.Ctx, publicConn, stream, limiter, nil, server)
+		//nolint:contextcheck // mapping.Ctx is already derived from server.Ctx, suppressing linter warning
 		go rateLimitedProxy(mapping.Ctx, stream, publicConn, limiter, mapping, server)
 	}
 }
